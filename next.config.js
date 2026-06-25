@@ -6,7 +6,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
-    serverComponentsExternalPackages: ["node-ssh", "ssh2", "argon2"],
+    serverComponentsExternalPackages: ["node-ssh", "ssh2", "@node-rs/argon2"],
   },
   async headers() {
     return [

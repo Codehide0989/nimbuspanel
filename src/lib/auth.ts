@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { db } from "./db";
 import { Role } from "@prisma/client";
-import * as argon2 from "argon2";
+import { hash, verify } from "@node-rs/argon2";
 import { randomBytes } from "crypto";
 
 const SESSION_COOKIE = "nimbus_session";
@@ -13,16 +13,16 @@ const LOCKOUT_MINUTES = 15;
 // ─── Password Hashing ───────────────────────────────────────────────
 
 export async function hashPassword(password: string): Promise<string> {
-  return argon2.hash(password, {
-    type: argon2.argon2id,
+  return hash(password, {
+    algorithm: 2, // Argon2id
     memoryCost: 65536,
     timeCost: 3,
     parallelism: 4,
   });
 }
 
-export async function verifyPassword(hash: string, password: string): Promise<boolean> {
-  return argon2.verify(hash, password);
+export async function verifyPassword(storedHash: string, password: string): Promise<boolean> {
+  return verify(storedHash, password);
 }
 
 // ─── Session Management ─────────────────────────────────────────────

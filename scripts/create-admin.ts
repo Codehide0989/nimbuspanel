@@ -4,7 +4,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import * as argon2 from "argon2";
+import { hash } from "@node-rs/argon2";
 import * as readline from "readline";
 
 const prisma = new PrismaClient();
@@ -73,8 +73,8 @@ async function main() {
 
   console.log("\n  Creating owner account...");
 
-  const passwordHash = await argon2.hash(password, {
-    type: argon2.argon2id,
+  const passwordHash = await hash(password, {
+    algorithm: 2, // Argon2id
     memoryCost: 65536,
     timeCost: 3,
     parallelism: 4,
