@@ -1,21 +1,24 @@
 import { Role } from "@prisma/client";
 
-/**
- * Navigation items use string icon names instead of component references.
- * Icons are resolved on the client side to avoid serialization errors
- * when passing from Server Components to Client Components.
- */
-
 export interface NavItem {
   href: string;
   label: string;
   iconName: string;
 }
 
+/**
+ * Role-based navigation.
+ * 
+ * Owner: Everything
+ * Admin: Everything except Owner-only pages
+ * Operator: Dashboard, Servers, Monitoring
+ * SSH User: Dashboard, Servers, Console
+ * Read Only: Dashboard, Servers (read), Storage (read)
+ */
 const ALL_NAV_ITEMS: (NavItem & { roles: Role[] })[] = [
   { href: "/dashboard", label: "Dashboard", iconName: "LayoutDashboard", roles: ["OWNER", "ADMIN", "OPERATOR", "SSH_USER", "READ_ONLY"] },
-  { href: "/servers", label: "Servers", iconName: "Server", roles: ["OWNER", "ADMIN", "OPERATOR"] },
-  { href: "/console", label: "Console", iconName: "Terminal", roles: ["OWNER", "ADMIN", "OPERATOR", "SSH_USER"] },
+  { href: "/servers", label: "Servers", iconName: "Server", roles: ["OWNER", "ADMIN", "OPERATOR", "SSH_USER", "READ_ONLY"] },
+  { href: "/console", label: "Console", iconName: "Terminal", roles: ["OWNER", "ADMIN", "SSH_USER"] },
   { href: "/storage", label: "Storage", iconName: "FolderOpen", roles: ["OWNER", "ADMIN", "READ_ONLY"] },
   { href: "/users", label: "Team", iconName: "Users", roles: ["OWNER", "ADMIN"] },
   { href: "/activity", label: "Activity", iconName: "Activity", roles: ["OWNER", "ADMIN"] },
