@@ -1,0 +1,16 @@
+{
+  "name": "NimbusPanel",
+  "short_name": "Nimbus",
+  "description": "Enterprise Cloud Infrastructure Manager",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#09090B",
+  "theme_color": "#3B82F6",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
