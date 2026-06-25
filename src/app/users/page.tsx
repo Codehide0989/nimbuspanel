@@ -12,7 +12,9 @@ export default async function UsersPage() {
     email: string;
     name: string | null;
     role: string;
+    isActive: boolean;
     joinedAt: string;
+    lastLoginAt: string | null;
   }> = [];
 
   let invitations: Array<{
@@ -25,23 +27,28 @@ export default async function UsersPage() {
   }> = [];
 
   try {
-    const teamMembers = await db.teamMember.findMany({
-      where: { workspaceId: user.workspaceId },
-      include: { user: true },
-      orderBy: { joinedAt: "desc" },
-    });
+    const [teamMembers, invites] = await Promise.all([
+      db.teamMember.findMany({
+        where: { workspaceId: user.workspaceId },
+        include: { user: { select: { email: true, name: true, isActive: true, lastLoginAt: true } } },
+        orderBy: { joinedAt: "desc" },
+      }),
+      db.invitation.findMany({
+        where: { workspaceId: user.workspaceId, status: { in: ["PENDING", "EXPIRED"] } },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
     members = teamMembers.map((m) => ({
       id: m.id,
       email: m.user.email,
       name: m.user.name,
       role: m.role,
+      isActive: m.user.isActive,
       joinedAt: m.joinedAt.toISOString(),
+      lastLoginAt: m.user.lastLoginAt?.toISOString() ?? null,
     }));
 
-    const invites = await db.invitation.findMany({
-      where: { workspaceId: user.workspaceId, status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-    });
     invitations = invites.map((i) => ({
       id: i.id,
       email: i.email,
@@ -50,14 +57,13 @@ export default async function UsersPage() {
       createdAt: i.createdAt.toISOString(),
       expiresAt: i.expiresAt.toISOString(),
     }));
-  } catch {
-    // DB error
-  }
+  } catch { /* DB error */ }
 
   return (
     <UsersClient
       members={members}
       invitations={invitations}
+      currentUserRole={user.role}
       nav={nav}
       user={{ name: user.name, email: user.email, workspaceName: user.workspaceName }}
     />
