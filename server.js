@@ -235,6 +235,21 @@ app.prepare().then(() => {
     const { pathname } = parse(req.url, true);
 
     if (pathname === "/ws/terminal") {
+      // Origin validation
+      const origin = req.headers.origin;
+      const allowedOrigins = [
+        process.env.NEXT_PUBLIC_APP_URL,
+        "http://localhost:3000",
+        "http://localhost:3001",
+      ].filter(Boolean);
+
+      if (origin && !allowedOrigins.includes(origin)) {
+        console.warn(`[Terminal] Rejected WebSocket from origin: ${origin}`);
+        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+
       wss.handleUpgrade(req, socket, head, (ws) => {
         handleTerminalConnection(ws, req);
       });
@@ -248,8 +263,15 @@ app.prepare().then(() => {
   });
 
   const port = parseInt(process.env.PORT || "3000", 10);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${port}`;
+  const wsProto = appUrl.startsWith("https") ? "wss" : "ws";
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || `${wsProto}://localhost:${port}/ws/terminal`;
+
   server.listen(port, () => {
-    console.log(`> NimbusPanel ready on http://localhost:${port}`);
-    console.log(`> WebSocket terminal: ws://localhost:${port}/ws/terminal`);
+    console.log(`> NimbusPanel ready`);
+    console.log(`  App URL:       ${appUrl}`);
+    console.log(`  WebSocket URL: ${wsUrl}`);
+    console.log(`  Port:          ${port}`);
+    console.log(`  Environment:   ${process.env.NODE_ENV || "development"}`);
   });
 });

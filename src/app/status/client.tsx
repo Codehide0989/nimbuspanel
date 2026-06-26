@@ -51,7 +51,7 @@ function ServiceCard({ name, connected, error, icon: Icon }: {
 
 export function StatusClient({ status }: Props) {
   const router = useRouter();
-  const allConnected = status.database.connected && status.s3.connected && status.resend.connected;
+  const allConnected = status.database.connected && status.s3.connected && status.smtp.connected;
 
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center p-6">
@@ -88,9 +88,9 @@ export function StatusClient({ status }: Props) {
             icon={Cloud}
           />
           <ServiceCard
-            name="Resend Email"
-            connected={status.resend.connected}
-            error={status.resend.error}
+            name="SMTP (Brevo)"
+            connected={status.smtp.connected}
+            error={status.smtp.error}
             icon={Mail}
           />
         </div>

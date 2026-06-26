@@ -50,6 +50,13 @@ export function ConsoleClient({ servers, sessionToken, nav, user }: Props) {
   }, []);
 
   const getWsUrl = useCallback((serverId: string) => {
+    // Use configured WebSocket URL, or auto-detect from current page
+    const configuredUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (configuredUrl) {
+      const separator = configuredUrl.includes("?") ? "&" : "?";
+      return `${configuredUrl}${separator}serverId=${serverId}&token=${sessionToken}`;
+    }
+    // Fallback: derive from current page (works when WS server is same-origin)
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${proto}//${window.location.host}/ws/terminal?serverId=${serverId}&token=${sessionToken}`;
   }, [sessionToken]);
@@ -105,18 +112,29 @@ export function ConsoleClient({ servers, sessionToken, nav, user }: Props) {
     ws.onclose = (event) => {
       console.log("[Console] WebSocket closed:", event.code, event.reason);
       setConnecting(false);
+      wsRef.current = null;
       if (connected) {
         setConnected(false);
         setOutput((prev) => prev + "\r\n[Connection closed]\r\n");
+
+        // Auto-reconnect with backoff (max 3 attempts)
+        const attempt = (reconnectTimer.current as unknown as number) || 0;
+        if (attempt < 3 && event.code !== 1000) { // 1000 = normal close
+          const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+          setOutput((prev) => prev + `[Reconnecting in ${delay / 1000}s...]\r\n`);
+          reconnectTimer.current = setTimeout(() => {
+            (reconnectTimer.current as unknown as number) = attempt + 1;
+            connect(selectedId);
+          }, delay) as unknown as ReturnType<typeof setTimeout>;
+        }
       }
-      wsRef.current = null;
     };
 
     ws.onerror = () => {
       setConnecting(false);
       setError("WebSocket connection failed. Ensure the server is running with: node server.js");
     };
-  }, [getWsUrl, connected]);
+  }, [getWsUrl, connected, selectedId]);
 
   const disconnect = useCallback(() => {
     if (wsRef.current) {

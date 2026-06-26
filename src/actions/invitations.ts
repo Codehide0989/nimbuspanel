@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { sendInvitationEmail, sendRoleChangedEmail } from "@/lib/resend";
+import { sendInviteEmail, sendRoleChanged } from "@/lib/mail";
 import { logActivity } from "@/lib/audit";
 import { inviteUserSchema } from "@/lib/validators";
 import { generateToken } from "@/lib/utils";
@@ -65,7 +65,7 @@ export async function inviteUser(input: unknown) {
     const workspaceName = workspace?.name ?? "NimbusPanel";
 
     // Send email — do NOT silently ignore failure
-    const emailResult = await sendInvitationEmail({
+    const emailResult = await sendInviteEmail({
       to: email,
       inviterName,
       workspaceName,
@@ -131,7 +131,7 @@ export async function resendInvitation(invitationId: string) {
 
     const inviterName = authUser.name ?? authUser.email;
 
-    const emailResult = await sendInvitationEmail({
+    const emailResult = await sendInviteEmail({
       to: invitation.email,
       inviterName,
       workspaceName: invitation.workspace.name,
@@ -250,7 +250,7 @@ export async function changeUserRole(memberId: string, newRole: Role) {
     await db.session.deleteMany({ where: { userId: member.userId } });
 
     // Send notification email
-    await sendRoleChangedEmail({
+    await sendRoleChanged({
       to: member.user.email,
       workspaceName: member.workspace.name,
       newRole: getRoleLabel(newRole),

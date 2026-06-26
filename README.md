@@ -89,7 +89,10 @@ Output directory: `.next`
 | `AWS_ACCESS_KEY_ID` | Yes | AWS IAM access key |
 | `AWS_SECRET_ACCESS_KEY` | Yes | AWS IAM secret key |
 | `AWS_S3_BUCKET_NAME` | Yes | S3 bucket name |
-| `RESEND_API_KEY` | Yes | Resend email API key |
+| `SMTP_HOST` | Yes | SMTP server (smtp-relay.brevo.com) |
+| `SMTP_PORT` | Yes | SMTP port (587) |
+| `SMTP_LOGIN` | Yes | SMTP login |
+| `SMTP_PASSWORD` | Yes | SMTP password |
 | `EMAIL_FROM` | Yes | Sender email address |
 | `NEXT_PUBLIC_APP_URL` | Yes | Public application URL |
 
