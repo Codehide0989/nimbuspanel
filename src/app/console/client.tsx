@@ -18,160 +18,212 @@ interface ServerOption {
 
 interface Props {
   servers: ServerOption[];
+  sessionToken: string;
   nav?: NavItem[];
   user?: { name: string | null; email: string; workspaceName: string };
 }
 
-export function ConsoleClient({ servers, nav, user }: Props) {
+export function ConsoleClient({ servers, sessionToken, nav, user }: Props) {
   const [selectedId, setSelectedId] = useState(servers.find((s) => s.status === "online")?.id ?? "");
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
-  const termRef = useRef<HTMLPreElement>(null);
+  const termRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const [output, setOutput] = useState("");
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selected = servers.find((s) => s.id === selectedId);
 
-  // Auto-scroll terminal
+  // Scroll to bottom on new output
   useEffect(() => {
     if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
   }, [output]);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => { stopPolling(); };
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    };
   }, []);
 
-  const api = useCallback(async (body: Record<string, unknown>) => {
-    const res = await fetch("/api/terminal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    return res.json();
-  }, []);
+  const getWsUrl = useCallback((serverId: string) => {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}/ws/terminal?serverId=${serverId}&token=${sessionToken}`;
+  }, [sessionToken]);
 
-  const startPolling = useCallback((serverId: string) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-
-    pollRef.current = setInterval(async () => {
-      try {
-        const data = await api({ action: "read", serverId });
-        if (data.output) {
-          setOutput((prev) => prev + data.output);
-        }
-        if (data.alive === false) {
-          setConnected(false);
-          stopPolling();
-          setOutput((prev) => prev + "\r\n\x1b[31m[Connection lost]\x1b[0m\r\n");
-        }
-      } catch {
-        // Network error, keep trying
-      }
-    }, 100); // Poll every 100ms for responsive feel
-  }, [api]);
-
-  const stopPolling = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
+  const connect = useCallback((serverId: string) => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
-  };
 
-  const handleConnect = async () => {
-    if (!selected || selected.status !== "online") return;
     setConnecting(true);
     setError("");
     setOutput("");
 
-    const data = await api({ action: "connect", serverId: selected.id });
+    const ws = new WebSocket(getWsUrl(serverId));
+    wsRef.current = ws;
 
-    setConnecting(false);
-    if (data.error) {
-      setError(data.error);
-      return;
+    ws.onopen = () => {
+      console.log("[Console] WebSocket connected");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+
+        switch (msg.type) {
+          case "connected":
+            setConnecting(false);
+            setConnected(true);
+            inputRef.current?.focus();
+            break;
+          case "output":
+            setOutput((prev) => prev + msg.data);
+            break;
+          case "error":
+            setConnecting(false);
+            setError(msg.message);
+            break;
+          case "disconnected":
+            setConnected(false);
+            setOutput((prev) => prev + `\r\n[${msg.reason || "Disconnected"}]\r\n`);
+            break;
+          case "pong":
+            // Heartbeat response
+            break;
+        }
+      } catch {
+        // Non-JSON data
+        setOutput((prev) => prev + event.data);
+      }
+    };
+
+    ws.onclose = (event) => {
+      console.log("[Console] WebSocket closed:", event.code, event.reason);
+      setConnecting(false);
+      if (connected) {
+        setConnected(false);
+        setOutput((prev) => prev + "\r\n[Connection closed]\r\n");
+      }
+      wsRef.current = null;
+    };
+
+    ws.onerror = () => {
+      setConnecting(false);
+      setError("WebSocket connection failed. Ensure the server is running with: node server.js");
+    };
+  }, [getWsUrl, connected]);
+
+  const disconnect = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
-
-    setConnected(true);
-    if (data.output) setOutput(data.output);
-    startPolling(selected.id);
-    inputRef.current?.focus();
-  };
-
-  const handleDisconnect = async () => {
-    stopPolling();
-    if (selected) await api({ action: "disconnect", serverId: selected.id });
     setConnected(false);
-    setOutput((prev) => prev + "\r\n\x1b[2m[Disconnected]\x1b[0m\r\n");
-  };
+  }, []);
 
-  const handleInput = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!connected || !selected) return;
+  const sendInput = useCallback((data: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "input", data }));
+    }
+  }, []);
+
+  const sendResize = useCallback((cols: number, rows: number) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "resize", cols, rows }));
+    }
+  }, []);
+
+  // Handle keystrokes
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!connected) return;
     e.preventDefault();
 
     let data = "";
 
-    if (e.key === "Enter") data = "\r";
-    else if (e.key === "Backspace") data = "\x7f";
-    else if (e.key === "Delete") data = "\x1b[3~";
-    else if (e.key === "Tab") data = "\t";
-    else if (e.key === "Escape") data = "\x1b";
-    else if (e.key === "ArrowUp") data = "\x1b[A";
-    else if (e.key === "ArrowDown") data = "\x1b[B";
-    else if (e.key === "ArrowRight") data = "\x1b[C";
-    else if (e.key === "ArrowLeft") data = "\x1b[D";
-    else if (e.key === "Home") data = "\x1b[H";
-    else if (e.key === "End") data = "\x1b[F";
-    else if (e.ctrlKey && e.key === "c") data = "\x03";
-    else if (e.ctrlKey && e.key === "d") data = "\x04";
-    else if (e.ctrlKey && e.key === "l") data = "\x0c";
-    else if (e.ctrlKey && e.key === "z") data = "\x1a";
-    else if (e.ctrlKey && e.key === "a") data = "\x01";
-    else if (e.ctrlKey && e.key === "e") data = "\x05";
-    else if (e.ctrlKey && e.key === "u") data = "\x15";
-    else if (e.ctrlKey && e.key === "k") data = "\x0b";
-    else if (e.ctrlKey && e.key === "w") data = "\x17";
-    else if (e.key.length === 1) data = e.key;
-
-    if (data) {
-      api({ action: "write", serverId: selected.id, data });
+    if (e.ctrlKey) {
+      const key = e.key.toLowerCase();
+      if (key === "c") data = "\x03";
+      else if (key === "d") data = "\x04";
+      else if (key === "l") data = "\x0c";
+      else if (key === "z") data = "\x1a";
+      else if (key === "a") data = "\x01";
+      else if (key === "e") data = "\x05";
+      else if (key === "u") data = "\x15";
+      else if (key === "k") data = "\x0b";
+      else if (key === "w") data = "\x17";
+      else if (key === "r") data = "\x12";
+      else if (key === "p") data = "\x10";
+      else if (key === "n") data = "\x0e";
+      else return;
+    } else {
+      switch (e.key) {
+        case "Enter": data = "\r"; break;
+        case "Backspace": data = "\x7f"; break;
+        case "Delete": data = "\x1b[3~"; break;
+        case "Tab": data = "\t"; break;
+        case "Escape": data = "\x1b"; break;
+        case "ArrowUp": data = "\x1b[A"; break;
+        case "ArrowDown": data = "\x1b[B"; break;
+        case "ArrowRight": data = "\x1b[C"; break;
+        case "ArrowLeft": data = "\x1b[D"; break;
+        case "Home": data = "\x1b[H"; break;
+        case "End": data = "\x1b[F"; break;
+        case "PageUp": data = "\x1b[5~"; break;
+        case "PageDown": data = "\x1b[6~"; break;
+        case "Insert": data = "\x1b[2~"; break;
+        case "F1": data = "\x1bOP"; break;
+        case "F2": data = "\x1bOQ"; break;
+        case "F3": data = "\x1bOR"; break;
+        case "F4": data = "\x1bOS"; break;
+        default:
+          if (e.key.length === 1) data = e.key;
+          break;
+      }
     }
+
+    if (data) sendInput(data);
   };
 
-  // Handle paste
   const handlePaste = (e: React.ClipboardEvent) => {
-    if (!connected || !selected) return;
+    if (!connected) return;
     e.preventDefault();
     const text = e.clipboardData.getData("text");
-    if (text) api({ action: "write", serverId: selected.id, data: text });
+    if (text) sendInput(text);
   };
 
-  // Strip ANSI for display (basic rendering)
-  const renderOutput = (raw: string): string => {
-    // Keep raw for now — the terminal styling will show escape codes
-    // A proper xterm.js integration would render these perfectly
-    // For HTTP-based approach, strip most ANSI for readability
-    return raw
-      .replace(/\x1b\[\?[0-9;]*[a-zA-Z]/g, "") // mode changes
-      .replace(/\x1b\[[0-9;]*[HJK]/g, "")        // cursor/clear
-      .replace(/\x1b\[[0-9;]*m/g, "")            // colors (strip for plain display)
-      .replace(/\x1b\][^\x07]*\x07/g, "")        // OSC sequences
-      .replace(/\x1b\[[\?]?[0-9;]*[a-zA-Z]/g, "") // remaining
-      .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n");
-  };
-
-  const handleServerChange = async (newId: string) => {
-    if (connected && selected) {
-      stopPolling();
-      await api({ action: "disconnect", serverId: selected.id });
-    }
+  const handleServerChange = (newId: string) => {
+    disconnect();
     setSelectedId(newId);
-    setConnected(false);
     setOutput("");
     setError("");
+  };
+
+  // Resize observer for terminal dimensions
+  useEffect(() => {
+    if (!termRef.current || !connected) return;
+    const observer = new ResizeObserver(() => {
+      if (termRef.current) {
+        const cols = Math.floor(termRef.current.clientWidth / 7.2); // ~7.2px per char at 12px font
+        const rows = Math.floor(termRef.current.clientHeight / 19.2); // ~19.2px per line
+        sendResize(cols, rows);
+      }
+    });
+    observer.observe(termRef.current);
+    return () => observer.disconnect();
+  }, [connected, sendResize]);
+
+  // Render terminal output (strip some problematic sequences for display)
+  const renderOutput = (raw: string): string => {
+    return raw
+      .replace(/\x1b\]0;[^\x07]*\x07/g, "")   // Strip window title changes
+      .replace(/\x1b\][^\x07]*\x07/g, "")      // Strip OSC sequences
+      .replace(/\r\n/g, "\n")
+      .replace(/\r(?!\n)/g, "\r");
   };
 
   return (
@@ -196,54 +248,59 @@ export function ConsoleClient({ servers, nav, user }: Props) {
             </div>
 
             {!connected ? (
-              <button onClick={handleConnect} disabled={connecting || !selectedId || selected?.status !== "online"}
+              <button onClick={() => selectedId && connect(selectedId)}
+                disabled={connecting || !selectedId || selected?.status !== "online"}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] font-medium bg-success/10 text-success border border-success/20 hover:bg-success/15 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
                 {connecting ? <Loader2 size={12} className="animate-spin" /> : <Wifi size={12} />}
                 {connecting ? "Connecting..." : "Connect"}
               </button>
             ) : (
-              <button onClick={handleDisconnect}
+              <button onClick={disconnect}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] font-medium bg-danger/10 text-danger border border-danger/20 hover:bg-danger/15 transition-all">
                 <WifiOff size={12} /> Disconnect
               </button>
             )}
 
             <div className="flex items-center gap-1.5 text-[10px] ml-auto">
-              <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-success" : "bg-muted")} />
+              <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-success animate-pulse" : "bg-muted")} />
               <span className={connected ? "text-success" : "text-muted"}>
-                {connected ? "Live Shell" : connecting ? "Connecting" : "Disconnected"}
+                {connected ? "Live" : connecting ? "Connecting" : "Disconnected"}
               </span>
             </div>
           </div>
 
-          {/* Terminal */}
-          <div className="flex-1 relative bg-[#0A0A0C] border-x border-border overflow-hidden" onClick={() => inputRef.current?.focus()}>
-            <pre
-              ref={termRef}
-              className="absolute inset-0 p-4 overflow-y-auto font-mono text-[12px] leading-[1.6] text-[#E4E4E7] whitespace-pre-wrap break-all select-text"
-            >
-              {!connected && !connecting && !output && (
-                <span className="text-muted">Select a server and click Connect to start an interactive SSH session.{"\n\n"}Supports: bash, nano, vim, top, htop, docker, and all standard commands.{"\n"}Shortcuts: Ctrl+C, Ctrl+D, Ctrl+L, Ctrl+Z, Tab, Arrow keys</span>
+          {/* Terminal Display */}
+          <div
+            ref={termRef}
+            className="flex-1 relative bg-black border-x border-border overflow-hidden cursor-text"
+            onClick={() => inputRef.current?.focus()}
+          >
+            <pre className="absolute inset-0 p-3 overflow-y-auto font-mono text-[13px] leading-[1.5] text-[#D4D4D8] whitespace-pre-wrap break-all select-text">
+              {!connected && !connecting && !output && !error && (
+                <span className="text-[#52525B]">
+                  {`Select a server and click Connect.\n\nThis is a real interactive SSH terminal.\nSupports: bash, nano, vim, top, htop, docker, and all commands.\n\nShortcuts:\n  Ctrl+C  Interrupt\n  Ctrl+D  Exit shell\n  Ctrl+L  Clear screen\n  Ctrl+Z  Suspend\n  Tab     Auto-complete`}
+                </span>
               )}
-              {error && <span className="text-[#F87171]">{error}</span>}
+              {error && <span className="text-[#EF4444]">{error}</span>}
               {output && renderOutput(output)}
             </pre>
 
-            {/* Hidden textarea captures all keyboard input */}
+            {/* Hidden input captures all keystrokes */}
             <textarea
               ref={inputRef}
-              className="absolute inset-0 opacity-0 cursor-text resize-none"
-              onKeyDown={handleInput}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-text resize-none outline-none"
+              onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               autoFocus={connected}
+              tabIndex={connected ? 0 : -1}
               aria-label="Terminal input"
             />
           </div>
 
-          {/* Footer */}
-          <div className="bg-[#0C0C0F] border border-border border-t-0 rounded-b-xl px-4 py-2 flex items-center justify-between text-[10px] text-muted">
-            <span>{connected ? `${selected?.username}@${selected?.hostname ?? selected?.publicIp} · Interactive Shell` : "Not connected"}</span>
-            <span>Ctrl+C interrupt · Ctrl+D exit · Ctrl+L clear · Tab complete</span>
+          {/* Status Bar */}
+          <div className="bg-[#0C0C0F] border border-border border-t-0 rounded-b-xl px-4 py-2 flex items-center justify-between text-[10px] text-[#52525B]">
+            <span>{connected ? `${selected?.username}@${selected?.hostname ?? selected?.publicIp} · bash` : "Not connected"}</span>
+            <span>Ctrl+C interrupt · Ctrl+D exit · Tab complete</span>
           </div>
         </div>
       )}

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node server.js",
+    "start:next": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -45,6 +46,7 @@
     "resend": "^3.2.0",
     "tailwind-merge": "^2.3.0",
     "uuid": "^9.0.0",
+    "ws": "^8.21.0",
     "xterm": "^5.3.0",
     "zod": "^3.23.0"
   },
