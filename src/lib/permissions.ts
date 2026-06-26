@@ -53,10 +53,6 @@ export function hasPermission(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
 }
 
-export function getPermissions(role: Role): Permission[] {
-  return ROLE_PERMISSIONS[role];
-}
-
 export function getRoleLabel(role: Role): string {
   const labels: Record<Role, string> = {
     OWNER: "Owner",

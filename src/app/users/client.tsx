@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Users, UserPlus, Clock, X, Loader2, Mail, MoreVertical, Shield, RefreshCw, UserMinus, Ban, Check } from "lucide-react";
+import { Users, UserPlus, Clock, X, Loader2, Mail, Shield, RefreshCw, UserMinus, Ban, Check } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -82,7 +82,7 @@ function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
             </div>
             <div>
               <h3 className="text-[15px] font-semibold text-foreground">Invite Team Member</h3>
-              <p className="text-[11px] text-secondary mt-0.5">They'll receive an email with credentials</p>
+              <p className="text-[11px] text-secondary mt-0.5">They&apos;ll receive an email with credentials</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl text-muted hover:text-foreground hover:bg-card transition-colors"><X size={16} /></button>

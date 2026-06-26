@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { uploadToS3, deleteFromS3, getPresignedUrl, buildKey, listS3Files, type S3Category } from "@/lib/s3";
+import { uploadToS3, deleteFromS3, getPresignedUrl, buildKey, type S3Category } from "@/lib/s3";
 import { logActivity } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 

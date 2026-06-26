@@ -1,7 +1,7 @@
 "use client";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { Settings, Shield, Globe, Bell, Palette, Key, Save } from "lucide-react";
+import { Settings, Shield, Bell, Key, Save } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 

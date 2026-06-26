@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
         {!sent ? (
           <>
             <h2 className="text-xl font-bold text-foreground mb-1">Reset Password</h2>
-            <p className="text-[13px] text-secondary mb-6">Enter your email and we'll send a reset link.</p>
+            <p className="text-[13px] text-secondary mb-6">Enter your email and we&apos;ll send a reset link.</p>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="text-[11px] text-muted font-medium block mb-1.5">Email</label>
@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
           <div className="text-center">
             <CheckCircle size={32} className="text-success mx-auto mb-4" />
             <h2 className="text-lg font-bold text-foreground mb-2">Check your email</h2>
-            <p className="text-[13px] text-secondary">If an account exists for {email}, you'll receive a reset link.</p>
+            <p className="text-[13px] text-secondary">If an account exists for {email}, you&apos;ll receive a reset link.</p>
           </div>
         )}
 

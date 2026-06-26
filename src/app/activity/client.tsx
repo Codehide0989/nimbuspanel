@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Server, Users, FolderOpen, Terminal, Shield, Filter } from "lucide-react";
+import { Activity, Server, Users, FolderOpen, Terminal, Shield } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRelativeTime, formatDate, cn } from "@/lib/utils";

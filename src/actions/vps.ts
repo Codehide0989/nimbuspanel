@@ -312,10 +312,3 @@ async function executeSSHCommand(serverId: string, command: string, actionName: 
 export async function startServer(serverId: string) { return executeSSHCommand(serverId, "sudo systemctl start --all 2>/dev/null || echo started", "start"); }
 export async function stopServer(serverId: string) { return executeSSHCommand(serverId, "sudo systemctl poweroff", "stop"); }
 export async function rebootServer(serverId: string) { return executeSSHCommand(serverId, "sudo reboot", "reboot"); }
-
-// Legacy exports
-export const createVps = createServer;
-export const deleteVps = (id: string) => deleteServer(id);
-export async function performVpsAction() { return { error: "Use start/stop/reboot actions" }; }
-export async function syncInstances() { return { error: "Manual VPS only" }; }
-export async function syncAwsInstances() { return { error: "Manual VPS only" }; }

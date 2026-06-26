@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { FolderOpen, Upload, Trash2, Download, Search, Loader2, File, Image, FileText, Archive, Grid, List } from "lucide-react";
+import { FolderOpen, Upload, Trash2, Download, Search, Loader2, File, Image as ImageIcon, FileText, Archive, Grid, List } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -15,7 +15,7 @@ interface Props { files: FileItem[]; }
 const categories = ["all", "avatars", "pem-keys", "configs", "backups", "logs"] as const;
 
 function getFileIcon(mime: string) {
-  if (mime.startsWith("image/")) return <Image size={14} className="text-purple" />;
+  if (mime.startsWith("image/")) return <ImageIcon size={14} className="text-purple" />;
   if (mime.includes("zip") || mime.includes("gzip") || mime.includes("tar")) return <Archive size={14} className="text-warning" />;
   if (mime.includes("json") || mime.includes("yaml")) return <FileText size={14} className="text-primary" />;
   return <File size={14} className="text-secondary" />;
