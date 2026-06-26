@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Lock, Zap, CheckCircle } from "lucide-react";
 import { resetPasswordAction } from "./actions";
 import Link from "next/link";
 
 function ResetForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
 

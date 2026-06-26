@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Server, Plus, Search, Trash2, RefreshCw, Loader2, Rocket, Play, Square, Terminal, Pencil } from "lucide-react";
+import { Plus, Search, Trash2, RefreshCw, Loader2, Rocket, Play, Square, Terminal, Pencil } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useToast } from "@/components/ui/toast";
-import { deleteServer, refreshServerInfo, startServer, stopServer, rebootServer } from "@/actions/vps";
+import { deleteServer, startServer, stopServer, rebootServer } from "@/actions/vps";
 import { formatRelativeTime, cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";

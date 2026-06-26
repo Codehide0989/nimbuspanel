@@ -1,6 +1,6 @@
 "use client";
 
-import { Server, Plus, Cpu, HardDrive, MemoryStick, Globe, Rocket, ArrowUpRight, Clock } from "lucide-react";
+import { Plus, Cpu, HardDrive, MemoryStick, Rocket, Clock } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatRelativeTime, cn } from "@/lib/utils";

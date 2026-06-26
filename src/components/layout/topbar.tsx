@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Menu, Bell, Search, Check, Trash2 } from "lucide-react";
+import { Menu, Bell, Search } from "lucide-react";
 import { formatRelativeTime, cn } from "@/lib/utils";
 
 interface Notification {
@@ -23,7 +23,6 @@ export function TopBar({ onMenuToggle, title, subtitle }: TopBarProps) {
   const [showNotifs, setShowNotifs] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
-  const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click

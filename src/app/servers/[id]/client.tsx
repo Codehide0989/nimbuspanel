@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, RefreshCw, Trash2, Copy, Loader2, Cpu, HardDrive, MemoryStick, Globe, Server, Clock, Terminal } from "lucide-react";
+import { ArrowLeft, RefreshCw, Trash2, Copy, Loader2, Cpu, HardDrive, MemoryStick, Globe, Clock, Terminal } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { useToast } from "@/components/ui/toast";
 import { refreshServerInfo, deleteServer } from "@/actions/vps";

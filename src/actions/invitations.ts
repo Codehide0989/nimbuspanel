@@ -294,7 +294,7 @@ export async function disableUser(memberId: string) {
 
     revalidatePath("/users");
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: "Failed to disable account" };
   }
 }
@@ -319,7 +319,7 @@ export async function enableUser(memberId: string) {
 
     revalidatePath("/users");
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: "Failed to enable account" };
   }
 }
@@ -352,7 +352,7 @@ export async function removeMember(memberId: string) {
 
     revalidatePath("/users");
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: "Failed to remove member" };
   }
 }

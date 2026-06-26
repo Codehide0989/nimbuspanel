@@ -50,15 +50,13 @@ export function ConsoleClient({ servers, sessionToken, nav, user }: Props) {
   }, []);
 
   const getWsUrl = useCallback((serverId: string) => {
-    // Use configured WebSocket URL, or auto-detect from current page
+    // Always use the configured WebSocket endpoint (separate backend service)
     const configuredUrl = process.env.NEXT_PUBLIC_WS_URL;
-    if (configuredUrl) {
-      const separator = configuredUrl.includes("?") ? "&" : "?";
-      return `${configuredUrl}${separator}serverId=${serverId}&token=${sessionToken}`;
+    if (!configuredUrl) {
+      return null;
     }
-    // Fallback: derive from current page (works when WS server is same-origin)
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${window.location.host}/ws/terminal?serverId=${serverId}&token=${sessionToken}`;
+    const separator = configuredUrl.includes("?") ? "&" : "?";
+    return `${configuredUrl}${separator}serverId=${serverId}&token=${sessionToken}`;
   }, [sessionToken]);
 
   const connect = useCallback((serverId: string) => {
@@ -67,11 +65,17 @@ export function ConsoleClient({ servers, sessionToken, nav, user }: Props) {
       wsRef.current = null;
     }
 
+    const wsUrl = getWsUrl(serverId);
+    if (!wsUrl) {
+      setError("Terminal server is not configured. Set NEXT_PUBLIC_WS_URL.");
+      return;
+    }
+
     setConnecting(true);
     setError("");
     setOutput("");
 
-    const ws = new WebSocket(getWsUrl(serverId));
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {

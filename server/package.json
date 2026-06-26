@@ -1,0 +1,27 @@
+{
+  "name": "nimbuspanel-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NimbusPanel WebSocket/SSH backend — independent Node.js service for the browser terminal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "db:generate": "prisma generate",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/s3-request-presigner": "^3.600.0",
+    "@prisma/client": "^5.14.0",
+    "dotenv": "^16.4.5",
+    "node-ssh": "^13.2.1",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.14.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import {
   X, ChevronDown, ChevronLeft, ChevronRight, HardDrive, Zap, LogOut,
@@ -14,8 +14,6 @@ import type { NavItem } from "@/lib/navigation";
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard, Server, Terminal, Users, FolderOpen, Activity, Settings,
 };
-
-const SIDEBAR_KEY = "nimbus_sidebar_collapsed";
 
 interface SidebarProps {
   isOpen: boolean;

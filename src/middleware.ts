@@ -4,22 +4,6 @@ import type { NextRequest } from "next/server";
 const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/accept-invite", "/api/live", "/api/health"];
 const SESSION_COOKIE = "nimbus_session";
 
-// In-memory rate limit for login (edge-compatible)
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = loginAttempts.get(ip);
-
-  if (!entry || entry.resetAt < now) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
-    return false;
-  }
-
-  entry.count++;
-  return entry.count > 10; // Allow 10 login page loads per 15min window from same IP
-}
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
