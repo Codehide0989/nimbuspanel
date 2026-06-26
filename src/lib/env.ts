@@ -29,11 +29,11 @@ export function getResendConfig() {
     );
   }
 
-  if (!emailFrom.includes("adda67.app")) {
-    throw new Error(
-      `[Resend] EMAIL_FROM must use the verified domain adda67.app. Got: "${emailFrom}"`
-    );
-  }
+  // Log on first load
+  const domain = emailFrom.match(/@([^\s>]+)/)?.[1] ?? "unknown";
+  console.log(`✓ EMAIL_FROM: ${emailFrom}`);
+  console.log(`✓ Sender domain: ${domain}`);
+  console.log(`✓ Resend API configured`);
 
   return { apiKey, emailFrom };
 }

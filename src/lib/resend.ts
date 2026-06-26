@@ -16,9 +16,10 @@ function validateSender(): string {
   const config = getResendConfig();
   const from = config.emailFrom;
 
-  // Validate sender belongs to verified domain
-  if (!from.includes("adda67.app")) {
-    throw new Error(`EMAIL_FROM must use the verified domain adda67.app. Got: ${from}`);
+  // Do not hardcode domain validation — let Resend API validate the sender.
+  // The sender must come from EMAIL_FROM environment variable.
+  if (!from || from.length < 3) {
+    throw new Error("EMAIL_FROM is empty or invalid");
   }
 
   return from;
@@ -145,6 +146,8 @@ export async function sendInvitationEmail(params: InvitationEmailParams): Promis
         </table>
       </td>`;
 
+    console.log("[Resend] Sending invitation email:", { to: params.to, from, subject: `${params.inviterName} invited you to ${params.workspaceName}` });
+
     const { data, error } = await resend.emails.send({
       from,
       to: params.to,
@@ -157,7 +160,7 @@ export async function sendInvitationEmail(params: InvitationEmailParams): Promis
       return { success: false, error: error.message };
     }
 
-    console.log("[Resend] Sent invitation:", data?.id);
+    console.log("[Resend] ✓ Email sent successfully. ID:", data?.id);
     return { success: true, messageId: data?.id };
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Email send failed";
