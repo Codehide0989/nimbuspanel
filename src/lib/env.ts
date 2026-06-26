@@ -29,6 +29,12 @@ export function getResendConfig() {
     );
   }
 
+  if (!emailFrom.includes("adda67.app")) {
+    throw new Error(
+      `[Resend] EMAIL_FROM must use the verified domain adda67.app. Got: "${emailFrom}"`
+    );
+  }
+
   return { apiKey, emailFrom };
 }
 
