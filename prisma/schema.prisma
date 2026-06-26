@@ -106,9 +106,14 @@ model Vps {
   displayName String
   publicIp    String
   sshPort     Int    @default(22)
-  username    String @default("ubuntu")
-  pemKeyS3Key String
+  username    String @default("root")
   status      String @default("offline")
+
+  // Authentication
+  authMethod     String  @default("key") // "key" or "password"
+  pemKeyS3Key    String? // S3 key for private key file
+  passwordEnc    String? // AES-256-GCM encrypted password
+  keyPassphrase  String? // AES-256-GCM encrypted passphrase (optional)
 
   // User-provided metadata
   provider    String  @default("other")

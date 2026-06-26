@@ -1,5 +1,15 @@
 import { NodeSSH } from "node-ssh";
 
+export interface SSHCredentials {
+  host: string;
+  port: number;
+  username: string;
+  authMethod: "key" | "password";
+  privateKey?: string;
+  passphrase?: string;
+  password?: string;
+}
+
 export interface SSHTestResult {
   success: boolean;
   message: string;
@@ -22,58 +32,63 @@ export interface ServerSystemInfo {
   uptime: string | null;
 }
 
+function buildConnectOptions(creds: SSHCredentials): Record<string, unknown> {
+  const opts: Record<string, unknown> = {
+    host: creds.host,
+    port: creds.port,
+    username: creds.username,
+    readyTimeout: 15000,
+    tryKeyboard: false,
+  };
+
+  if (creds.authMethod === "password" && creds.password) {
+    opts.password = creds.password;
+  } else if (creds.authMethod === "key" && creds.privateKey) {
+    opts.privateKey = creds.privateKey;
+    if (creds.passphrase) opts.passphrase = creds.passphrase;
+  }
+
+  return opts;
+}
+
 /**
- * Test SSH connection and return basic validation result.
+ * Test SSH connection with either key or password authentication.
  */
-export async function testSSHConnection(params: {
-  host: string;
-  port: number;
-  username: string;
-  privateKey: string;
-}): Promise<SSHTestResult> {
+export async function testSSHConnection(creds: SSHCredentials): Promise<SSHTestResult> {
   const ssh = new NodeSSH();
   const startTime = Date.now();
 
   try {
-    await ssh.connect({
-      host: params.host,
-      port: params.port,
-      username: params.username,
-      privateKey: params.privateKey,
-      readyTimeout: 10000,
-      tryKeyboard: false,
-    });
-
+    await ssh.connect(buildConnectOptions(creds) as Parameters<typeof ssh.connect>[0]);
     const latencyMs = Date.now() - startTime;
-    const result = await ssh.execCommand("echo connected");
+
+    const result = await ssh.execCommand("echo ok");
     ssh.dispose();
 
-    if (result.stdout.trim() === "connected") {
+    if (result.stdout.trim() === "ok") {
       return { success: true, message: "SSH connection successful", latencyMs };
     }
-
-    return { success: false, message: "Connected but command execution failed" };
+    return { success: false, message: "Connected but shell execution failed" };
   } catch (error) {
     ssh.dispose();
     const msg = error instanceof Error ? error.message : "SSH connection failed";
 
-    if (msg.includes("ECONNREFUSED")) return { success: false, message: "Connection refused. Check host and port." };
-    if (msg.includes("ETIMEDOUT") || msg.includes("ENOTFOUND")) return { success: false, message: "Host unreachable. Check IP address." };
-    if (msg.includes("authentication") || msg.includes("auth")) return { success: false, message: "Authentication failed. Check username and PEM key." };
+    if (msg.includes("ECONNREFUSED")) return { success: false, message: "Connection refused — check host and port" };
+    if (msg.includes("ETIMEDOUT") || msg.includes("ENOTFOUND")) return { success: false, message: "Host unreachable — check IP address or domain" };
+    if (msg.includes("ECONNRESET")) return { success: false, message: "Connection reset — SSH service may be unavailable" };
+    if (msg.includes("All configured authentication methods failed")) return { success: false, message: "Authentication failed — wrong password or invalid key" };
+    if (msg.includes("authentication") || msg.includes("auth")) return { success: false, message: "Authentication failed — check credentials" };
+    if (msg.includes("passphrase")) return { success: false, message: "Private key requires a passphrase" };
+    if (msg.includes("Invalid key") || msg.includes("key_parse")) return { success: false, message: "Invalid private key format" };
 
     return { success: false, message: msg };
   }
 }
 
 /**
- * Collect full system information from a server via SSH.
+ * Collect system information from a server via SSH.
  */
-export async function collectServerInfo(params: {
-  host: string;
-  port: number;
-  username: string;
-  privateKey: string;
-}): Promise<ServerSystemInfo> {
+export async function collectServerInfo(creds: SSHCredentials): Promise<ServerSystemInfo> {
   const ssh = new NodeSSH();
   const info: ServerSystemInfo = {
     hostname: null, kernel: null, arch: null, cpuCores: null,
@@ -83,69 +98,59 @@ export async function collectServerInfo(params: {
   };
 
   try {
-    await ssh.connect({
-      host: params.host,
-      port: params.port,
-      username: params.username,
-      privateKey: params.privateKey,
-      readyTimeout: 10000,
-      tryKeyboard: false,
-    });
+    await ssh.connect(buildConnectOptions(creds) as Parameters<typeof ssh.connect>[0]);
 
-    // Collect all data in parallel
     const commands = await Promise.allSettled([
       ssh.execCommand("hostname"),
       ssh.execCommand("uname -r"),
       ssh.execCommand("uname -m"),
-      ssh.execCommand("nproc"),
-      ssh.execCommand("free -m | awk '/^Mem:/{print $2}'"),
-      ssh.execCommand("df -BG / | awk 'NR==2{print $2,$3,$4}'"),
-      ssh.execCommand("df / | awk 'NR==2{print $1}'"),
-      ssh.execCommand("hostname -I | awk '{print $1}'"),
+      ssh.execCommand("nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null"),
+      ssh.execCommand("free -m 2>/dev/null | awk '/^Mem:/{print $2}'"),
+      ssh.execCommand("df -BG / 2>/dev/null | awk 'NR==2{print $2,$3,$4}'"),
+      ssh.execCommand("df / 2>/dev/null | awk 'NR==2{print $1}'"),
+      ssh.execCommand("hostname -I 2>/dev/null | awk '{print $1}'"),
       ssh.execCommand("cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION_ID)=' | head -2"),
-      ssh.execCommand("uptime -p 2>/dev/null || uptime"),
+      ssh.execCommand("uptime -p 2>/dev/null || uptime | sed 's/.*up/up/'"),
     ]);
 
-    const getStdout = (idx: number): string => {
+    const get = (idx: number): string => {
       const r = commands[idx];
       if (r.status === "fulfilled" && r.value.stdout) return r.value.stdout.trim();
       return "";
     };
 
-    info.hostname = getStdout(0) || null;
-    info.kernel = getStdout(1) || null;
-    info.arch = getStdout(2) || null;
+    info.hostname = get(0) || null;
+    info.kernel = get(1) || null;
+    info.arch = get(2) || null;
 
-    const cores = parseInt(getStdout(3));
+    const cores = parseInt(get(3));
     info.cpuCores = isNaN(cores) ? null : cores;
 
-    const ram = parseInt(getStdout(4));
+    const ram = parseInt(get(4));
     info.ramTotalMb = isNaN(ram) ? null : ram;
 
-    // Parse disk: "30G 12G 17G"
-    const diskParts = getStdout(5).replace(/G/g, "").split(/\s+/);
+    const diskParts = get(5).replace(/G/g, "").split(/\s+/);
     if (diskParts.length >= 3) {
       info.diskTotalGb = parseFloat(diskParts[0]) || null;
       info.diskUsedGb = parseFloat(diskParts[1]) || null;
       info.diskFreeGb = parseFloat(diskParts[2]) || null;
     }
 
-    info.filesystem = getStdout(6) || null;
-    info.privateIp = getStdout(7) || null;
+    info.filesystem = get(6) || null;
+    info.privateIp = get(7) || null;
 
-    // Parse OS release
-    const osRelease = getStdout(8);
+    const osRelease = get(8);
     const nameMatch = osRelease.match(/NAME="?([^"\n]+)"?/);
     const versionMatch = osRelease.match(/VERSION_ID="?([^"\n]+)"?/);
     info.osName = nameMatch ? nameMatch[1] : null;
     info.osVersion = versionMatch ? versionMatch[1] : null;
 
-    info.uptime = getStdout(9) || null;
+    info.uptime = get(9) || null;
 
     ssh.dispose();
   } catch (error) {
     ssh.dispose();
-    console.error("[collectServerInfo] Error:", error);
+    console.error("[collectServerInfo]", error);
   }
 
   return info;
